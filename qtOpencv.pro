@@ -10,14 +10,19 @@ greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
 TARGET = qtOpencv
 TEMPLATE = app
-
+QMAKE_CXXFLAGS = -std=c++11
 
 SOURCES += main.cpp\
         mainwindow.cpp \
-    meglwidget.cpp
+    meglwidget.cpp \
+    Primitives/shapegenerator.cpp
 
 HEADERS  += mainwindow.h \
-    meglwidget.h
+    meglwidget.h \
+    ui_mainwindow.h \
+    Primitives/Vertex.h \
+    Primitives/shapedata.h \
+    Primitives/shapegenerator.h
 
 FORMS    += mainwindow.ui
 

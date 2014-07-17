@@ -2,6 +2,13 @@
 #include <iostream>
 #include <fstream>
 #include "meglwidget.h"
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include "Primitives/Vertex.h"
+#include "Primitives/shapedata.h"
+#include "Primitives/shapegenerator.h"
+//#include <Qt>
+
 
 using namespace std;
 
@@ -9,8 +16,18 @@ using namespace std;
 extern const char* vertexShaderCode;
 extern const char* fragmentShaderCode;
 
-meGLWidget::meGLWidget(QWidget *parent) :
-    QGLWidget(parent)
+const uint NUM_VERTICES_PER_TRI = 3;
+const uint NUM_FLOATS_PER_VERTICE = 6;
+const uint VERTEX_BYTE_SIZE = NUM_FLOATS_PER_VERTICE* sizeof(float);
+GLuint programID;
+
+using glm::mat4;
+using glm::vec3;
+
+GLuint numIndices;
+
+
+meGLWidget::meGLWidget(QWidget *parent) :QGLWidget(parent)
 {
 
 }
@@ -18,57 +35,36 @@ meGLWidget::meGLWidget(QWidget *parent) :
 void meGLWidget::sendDataToOpenGL()
 {
 
-    const float RED_TRIANGLE_Z = 0.5;
-    const float BLUE_TRIANGLE_Z = -0.5;
-    GLfloat verts[] ={
-        -1.0f, -1.0f, RED_TRIANGLE_Z,      //0
-        +1.0f, +0.0f,+0.0f,
-        +0.0f, +1.0f, RED_TRIANGLE_Z,       //1
-        +1.0f, +0.0f,+0.0f,
-        +1.0f, -1.0f, RED_TRIANGLE_Z,      //2
-        +1.0f, +0.0f,+0.0f,
-
-        -1.0f, +1.0f,BLUE_TRIANGLE_Z,       //3
-        +0.0f, +0.0f,+1.0f,
-        +1.0f, +1.0f,BLUE_TRIANGLE_Z,       //4
-        +0.0f, +0.0f,+1.0f,
-        +0.0f, -1.0f,BLUE_TRIANGLE_Z,       // 5
-        +0.0f, +0.0f,+1.0f,
-
-    };
+    ShapeData shape = ShapeGenerator::makeCube();//ShapeGenerator::makeTriangle();
 
 
     GLuint vertexBufferID;
 
-    glGenBuffers(1,
-                 &vertexBufferID);
-    glBindBuffer(GL_ARRAY_BUFFER,
-                 vertexBufferID);
-    glBufferData(GL_ARRAY_BUFFER,
-                 sizeof(verts),
-                 verts,
-                 GL_STATIC_DRAW);
+    glGenBuffers(1,&vertexBufferID);
+    glBindBuffer(GL_ARRAY_BUFFER,vertexBufferID);
+    glBufferData(GL_ARRAY_BUFFER,shape.vertexBufferSize(),shape.vertices,GL_STATIC_DRAW);
 
 
     glEnableVertexAttribArray(0);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(float)*6, 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE,VERTEX_BYTE_SIZE, 0);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(float)*6, (char*)(sizeof(float)*3));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE,VERTEX_BYTE_SIZE, (char*)(sizeof(float)*3));
 
-    GLushort indices[]={0,1,2, 3,4,5 };
+
     GLuint indexBufferID;
 
-    glGenBuffers(1,
-                 &indexBufferID);
+    glGenBuffers(1,&indexBufferID);
 
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                 indexBufferID );
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER,indexBufferID );
 
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER,
-                 sizeof(indices),
-                 indices,
-                 GL_STATIC_DRAW);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER,shape.indexBufferSize(),shape.indices,GL_STATIC_DRAW);
+
+    numIndices = shape.numIndices;
+    shape.cleanUp();
+
+
+
 }
 
 bool meGLWidget::checkStatus(GLuint objectID,
@@ -145,10 +141,11 @@ void meGLWidget::installShader()
 
     }
 
-    GLuint programID = glCreateProgram();
+    programID = glCreateProgram();
     glAttachShader( programID, vertexShaderID);
     glAttachShader( programID, fragmentShaderID);
     glLinkProgram(programID);
+
 
     if (!checkProgramStatus(programID))
         return;
@@ -170,13 +167,26 @@ void meGLWidget::initializeGL()
 
 void meGLWidget::paintGL()
 {
-    glClearColor(0.0, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
 
-    glClear(GL_DEPTH_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     glViewport(0, 0, width(), height());
-    //    glDrawArrays(GL_TRIANGLES,0,6);
-    glDrawElements(GL_TRIANGLES,6, GL_UNSIGNED_SHORT,0);
+
+    mat4 projectionMatrix = glm::perspective(60.0f,((float)width())/ height(),0.1f,10.0f);
+    mat4 projectionTranslationMatrix = glm::translate(projectionMatrix,vec3(0.0f,0.0f,-3.0f));
+
+    mat4 fullTransformMatrix = glm::rotate(projectionTranslationMatrix, 144.0f,glm::vec3(1.0f, 0.0f,0.0f));
+
+    GLint fullTransformMatrixUniformLocation =
+            glGetUniformLocation(programID,"fullTransformMatrix");
+
+
+    glUniformMatrix4fv(fullTransformMatrixUniformLocation,1,GL_FALSE,
+                       &fullTransformMatrix[0][0]);
+
+    glDrawElements(GL_TRIANGLES,
+                   numIndices, // TODO: Buraya gelecek değişkeni bulmak gerek,
+                   GL_UNSIGNED_SHORT,
+                   0);
 
 }

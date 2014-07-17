@@ -3,8 +3,10 @@
 
 #include <QGLWidget>
 
+
 class meGLWidget : public QGLWidget
 {
+
     Q_OBJECT
 public:
     explicit meGLWidget(QWidget *parent = 0);
